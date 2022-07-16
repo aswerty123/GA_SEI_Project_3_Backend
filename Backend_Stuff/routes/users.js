@@ -30,6 +30,69 @@ router.get("/seedUsers", async (req, res) => {
     res.json(data);
   });
 });
+////////////////////////////////
+// User Registration
+////////////////////////////////
+/*
+req.body => 
+{
+    "email":"randomCEO@generalassemb.ly",
+    "password":"password12345",
+    "password1": "password12345",
+    "name":"GACEO",
+    "friends": []
+}
+*/
+router.put(
+  "/register",
+  [
+    body(
+      "password",
+      "Invalid password need to be at least 12 characters (alphanumeric only)"
+    )
+      .not()
+      .isEmpty()
+      .isLength({ min: 12 })
+      .isAlphanumeric(),
+    body("email", "Invalid email").isEmail(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    try {
+      const user = await User.findOne({ email: req.body.email });
+      if (user) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "email already exist" });
+      }
+      if (req.body.password !== req.body.password1) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "password does not match" });
+      }
+
+      //12 is how many times it runs through the salt
+      const hash = await bcrypt.hash(req.body.password, 12);
+      const createdUser = await User.create({
+        email: req.body.email,
+        hash,
+        name: req.body.name,
+        friends: req.body.friends,
+      });
+
+      console.log("created user: ", createdUser);
+      res.json({ status: "ok", message: "user created" });
+    } catch (err) {
+      console.log("PUT /create", err);
+      res
+        .status(400)
+        .json({ status: "error", message: "an error has occurred" });
+    }
+  }
+);
 
 ////////////////////////////////
 // User Login
@@ -62,7 +125,6 @@ router.post("/login", async (req, res) => {
         .status(404)
         .json({ status: "error", message: "username does not exist" });
     }
-
     const result = await bcrypt.compare(req.body.password, user.hash);
     if (!result) {
       console.log("email or password error");
@@ -71,12 +133,15 @@ router.post("/login", async (req, res) => {
     const payload = {
       id: user._id,
       email: user.email,
+      name: user.name,
       isAdmin: user.isAdmin,
-      company: user.company,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      friends: user.friends,
     };
 
     const access = jwt.sign(payload, process.env.ACCESS_SECRET, {
-      expiresIn: "20m",
+      expiresIn: "15s",
       jwtid: uuidv4(),
     });
     const refresh = jwt.sign(payload, process.env.REFRESH_SECRET, {
@@ -92,95 +157,147 @@ router.post("/login", async (req, res) => {
   }
 });
 
-//Getting all users
-router.get("/", async (req, res) => {
+////////////////////////////////
+// User Refresh Access Token
+////////////////////////////////
+/*
+User input to req body => 
+{
+    "refresh": "{{refresh_token}}"
+}
+
+Test =>
+let jsonData= pm.response.json();
+pm.environment.set("access_token", jsonData['access']);
+*/
+router.post("/refresh", (req, res) => {
   try {
+    const decoded = jwt.verify(req.body.refresh, process.env.REFRESH_SECRET);
+
+    const payload = {
+      id: decoded.id,
+      email: decoded.email,
+      name: decoded.name,
+      isAdmin: decoded.isAdmin,
+      createdAt: decoded.createdAt,
+      updatedAt: decoded.updatedAt,
+      friends: decoded.friends,
+    };
+
+    const access = jwt.sign(payload, process.env.ACCESS_SECRET, {
+      expiresIn: "15s",
+      jwtid: uuidv4(),
+    });
+
+    const response = { access };
+    res.json(response);
+  } catch (err) {
+    console.log("POST /refresh", error);
+
+    res.status(401).json({
+      status: "error",
+      message: "unauthorised",
+    });
+  }
+});
+
+////////////////////////////////
+// Display User Info (protected endpoint)
+////////////////////////////////
+
+router.get("/display/user", auth, async (req, res) => {
+  const users = await User.findOne({ _id: req.decoded.id });
+  res.json(users);
+});
+
+////////////////////////////////
+// Update User Info (protected endpoint)
+////////////////////////////////
+/*
+req.body => 
+{
+    "email": "updated.email@generalassemb.ly",
+    "password":"password12345",
+    "password1": "password12345",
+    "name": "updated.name",
+    
+  }
+*/
+
+router.patch(
+  "/update/user",
+  [
+    auth,
+    body(
+      "password",
+      "Invalid password need to be at least 12 characters (alphanumeric only)"
+    )
+      .not()
+      .isEmpty()
+      .isLength({ min: 12 })
+      .isAlphanumeric(),
+    body("email", "Invalid email").isEmail(),
+  ],
+  async (req, res) => {
+    if (req.body.password !== req.body.password1) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "password does not match" });
+    }
+    const user = await User.findOne({ _id: req.decoded.id });
+    user.email = req.body.email || user.email;
+    user.name = req.body.name || user.name;
+
+    const password = await bcrypt.hash(req.body.password, 12);
+    user.hash = password || user.hash;
+
+    await user.save();
+
+    res.json(user);
+  }
+);
+
+///////===== Admin Endpoints =====/////////////////////////////////
+
+////////////////////////////////
+// Display all Users Info (protected endpoint)
+////////////////////////////////
+
+router.get("/display/users", auth, async (req, res) => {
+  if (req.decoded.isAdmin) {
     const users = await User.find();
     res.json(users);
-  } catch (err) {
-    //sending status 500 means server error
-    res.status(500).json({ message: err.message });
+  } else {
+    res.json({ message: "cannot access, need to be an Admin" });
   }
 });
 
-//Getting one user
-router.get("/:id", getUser, (req, res) => {
-  res.send(res.user);
-});
+////////////////////////////////
+// Update isAdmin property
+////////////////////////////////
 
-//Creating one user (register a user)
-router.post("/", async (req, res) => {
-  try {
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
-    const user = new User({
-      username: req.body.name,
-      password: hashedPassword,
-      email: req.body.email,
-    });
-    const newUser = await user.save();
-    //when sending POST use 201 status means that user successfully created something
-    res.status(201).json(newUser);
-  } catch (err) {
-    //400 error means the user gives bad data, something wrong with the uer input
-    res.status(400).json({ message: err.message });
+/*
+User input to req body => 
+{
+    email: "desmond.lim@generalassemb.ly",
+    isAdmin: true
+  }
+*/
+
+router.patch("/update/isadmin", auth, async (req, res) => {
+  if (req.decoded.isAdmin) {
+    const user = await User.findOne({ email: req.body.email });
+
+    user.isAdmin = req.body.isAdmin || user.isAdmin;
+
+    const password = await bcrypt.hash(req.body.password, 12);
+    user.hash = password || user.hash;
+
+    await user.save();
+    res.json(user);
+  } else {
+    res.json({ message: "cannot access, need to be an Admin" });
   }
 });
-
-//Authenticate user based on username and password
-router.post("/login", async (req, res) => {
-  const user = await User.findOne({ username: req.body.username });
-  //   console.log(user);
-  if (user == null) {
-    return res.status(400).json({ message: "Cannot find User" });
-  }
-  try {
-    console.log(user);
-    if (bcrypt.compareSync(req.body.password, user.password)) {
-      const accessToken = jwt.sign(
-        JSON.stringify(user),
-        process.env.ACCESS_TOKEN_SECRET
-      );
-      res.json({ message: "Login Successful", accessToken: accessToken });
-    } else {
-      res.send("Not Allowed");
-    }
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-});
-
-//Updating one user
-
-//Deleting one user
-
-//function to authenticate token
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-  if (token == null) return res.sendStatus(401);
-
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-}
-
-//function to check if user exist (middleWare)
-async function getUser(req, res, next) {
-  let user;
-  try {
-    user = await User.findById(req.params.id);
-    if (user == null) {
-      //sending status 404 means cannot find user that is being inputed
-      return res.status(404).json({ message: "Cannot find User" });
-    }
-  } catch (err) {
-    //sending status 500 means server error
-    return res.status(500).json({ message: err.message });
-  }
-  res.user = user;
-  next();
-}
 
 module.exports = router;
