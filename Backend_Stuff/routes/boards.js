@@ -2,6 +2,8 @@ const express = require(`express`);
 const router = express.Router();
 const User = require(`../models/Board`);
 
+const { seedUsers, seedBoards, seedCards } = require("../models/seeds");
+
 //Getting all Boards based on the user id
 
 //Getting one user
