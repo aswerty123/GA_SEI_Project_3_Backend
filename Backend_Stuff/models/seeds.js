@@ -7,13 +7,13 @@ const seedUsers = [
     friends: [],
   },
   {
-    email: "czhenhao@hotmail.com",
+    email: "zhenhao.chen@generalassemb.ly",
     hash: "password12345",
     name: "Zhenhao Chen",
     friends: [],
   },
   {
-    email: "ngnaaa@gmail.com",
+    email: "nyna.yusof@generalassemb.ly",
     hash: "password12345",
     name: "Nyna Yusof",
     friends: [],
