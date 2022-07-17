@@ -8,6 +8,7 @@ const auth = require("../middleware/auth");
 const { seedUsers, seedBoards, seedCards } = require("../models/seeds");
 
 const { body, validationResult } = require("express-validator");
+const { route } = require("./users");
 
 ////////////////////////////////
 // ADD Seed boards data
@@ -285,6 +286,119 @@ router.put(
 ////////////////////////////////
 // Get Cards by status
 ////////////////////////////////
+/*
+req.body => 
+{
+    "boardId":"board object id",
+}
+*/
+
+router.get("/display/cards/:status", auth, async (req, res) => {
+  try {
+    const board = await Board.findOne(
+      {
+        _id: req.body.boardId,
+      }
+      //   {
+      //     activeCards: { status: { $eq: req.params.status } } ,
+      //   }
+    );
+    if (!board) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "board does not exist" });
+    }
+    const filteredArray = board.activeCards.filter(
+      (card) => card.status === req.params.status
+    );
+
+    res.json(filteredArray);
+  } catch (err) {
+    console.log("GET /display/cards/:status", err);
+    res.status(400).json({ status: "error", message: "an error has occurred" });
+  }
+});
+
+////////////////////////////////
+// Delete Card
+////////////////////////////////
+/*
+req.body => 
+{
+    "boardId":"board object id",
+    "cardId": "card object id",
+  }
+*/
+router.delete("/remove/card", auth, async (req, res) => {
+  try {
+    const board = await Board.findOne({ _id: req.body.boardId });
+    if (!board) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Board does not exist" });
+    }
+    // await board.updateOne(
+    //   { _id: req.body.boardId },
+    //   { $pull: { activeCards: { _id: req.body.cardId } } }
+    // );
+    const updatedBoard = await Board.updateOne(
+      { _id: req.body.boardId },
+      { $pull: { activeCards: { _id: req.body.cardId } } }
+    );
+    res.json(updatedBoard);
+
+    // res.json(` ${req.body.cardId} Card is successfully removed`);
+  } catch (err) {
+    console.log("DELETE /delete/card", err);
+
+    res.status(400).json({
+      status: "error",
+      message: "Delete error",
+    });
+  }
+});
+
+////////////////////////////////
+// Add Comment in Card
+////////////////////////////////
+/*
+req.body => 
+{
+    "boardId":"board object id",
+    "cardId": "card object id",
+    "comment": "New comment!!! :D"
+  }
+*/
+router.put(
+  "/create/comment",
+  [auth, body("comment", "Please enter Card Title").not().isEmpty()],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    try {
+      const board = await Board.findOne({ _id: req.body.boardId });
+      if (!board) {
+        return res
+          .status(404)
+          .json({ status: "error", message: "board does not exist" });
+      }
+
+      const updatedBoard = await Board.updateOne(
+        { _id: req.body.boardId, "activeCards._id": req.body.cardId },
+        { $push: { "activeCards.comments": req.body.comment } }
+      );
+
+      res.json(board);
+    } catch (err) {
+      console.log("PUT /create/comment", err);
+      res
+        .status(400)
+        .json({ status: "error", message: "an error has occurred" });
+    }
+  }
+);
 
 //Getting all Boards based on the user id
 
