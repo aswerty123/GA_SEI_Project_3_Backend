@@ -14,7 +14,10 @@ const CardSchema = new mongoose.Schema({
     required: true,
   },
   comments: [String],
-  status: String,
+  status: {
+    type: String,
+    default: "toDo",
+  },
   //=================================== keeping track of creation and updated owner and date
   createdBy: {
     type: mongoose.SchemaTypes.ObjectId,

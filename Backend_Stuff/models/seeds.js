@@ -46,13 +46,13 @@ const seedBoards = [
     activeCards: [],
     archiveCards: [],
   },
-  //   {
-  //     title: "Starting Project Example 2",
-  //     desc: "second project in this app",
-  //     members: [],
-  //     activeCards: [],
-  //     archiveCards: [],
-  //   },
+  {
+    title: "Starting Project Example 2",
+    desc: "second project in this app",
+    members: [],
+    activeCards: [],
+    archiveCards: [],
+  },
 ];
 
 const seedCards = [

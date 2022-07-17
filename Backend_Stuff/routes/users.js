@@ -14,7 +14,7 @@ const { seedUsers, seedBoards, seedCards } = require("../models/seeds");
 const { body, validationResult } = require("express-validator");
 
 ////////////////////////////////
-// ADD Seed data after Encrypting the Password
+// ADD Seed users data after Encrypting the Password
 ////////////////////////////////
 
 router.get("/seedUsers", async (req, res) => {
@@ -30,6 +30,10 @@ router.get("/seedUsers", async (req, res) => {
     res.json(data);
   });
 });
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Users API
+////////////////////////////////////////////////////////////////////////////////////////////////
+
 ////////////////////////////////
 // User Registration
 ////////////////////////////////
@@ -185,14 +189,14 @@ router.post("/refresh", (req, res) => {
     };
 
     const access = jwt.sign(payload, process.env.ACCESS_SECRET, {
-      expiresIn: "15s",
+      expiresIn: "5m",
       jwtid: uuidv4(),
     });
 
     const response = { access };
     res.json(response);
   } catch (err) {
-    console.log("POST /refresh", error);
+    console.log("POST /refresh", err);
 
     res.status(401).json({
       status: "error",
@@ -219,7 +223,7 @@ req.body =>
     "email": "updated.email@generalassemb.ly",
     "password":"password12345",
     "password1": "password12345",
-    "name": "updated.name",
+    "name": "updated.name"
     
   }
 */
@@ -239,6 +243,10 @@ router.patch(
     body("email", "Invalid email").isEmail(),
   ],
   async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
     if (req.body.password !== req.body.password1) {
       return res
         .status(400)
@@ -263,7 +271,7 @@ router.patch(
 // Display all Users Info (protected endpoint)
 ////////////////////////////////
 
-router.get("/display/users", auth, async (req, res) => {
+router.get("/admin/display/users", auth, async (req, res) => {
   if (req.decoded.isAdmin) {
     const users = await User.find();
     res.json(users);
@@ -279,25 +287,46 @@ router.get("/display/users", auth, async (req, res) => {
 /*
 User input to req body => 
 {
-    email: "desmond.lim@generalassemb.ly",
-    isAdmin: true
+    "email": "zhenhao.chen@generalassemb.ly",
+    "isAdmin": true
   }
 */
 
-router.patch("/update/isadmin", auth, async (req, res) => {
-  if (req.decoded.isAdmin) {
-    const user = await User.findOne({ email: req.body.email });
+router.patch(
+  "/admin/update/isadmin",
+  [
+    auth,
+    body("isAdmin", "Invalid isAdmin value(boolean only)")
+      .not()
+      .isEmpty()
+      .isBoolean(),
+  ],
+  async (req, res) => {
+    if (req.decoded.isAdmin) {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
 
-    user.isAdmin = req.body.isAdmin || user.isAdmin;
+      const user = await User.findOne({ email: req.body.email });
+      if (!user) {
+        return res
+          .status(404)
+          .json({ status: "error", message: "user does not exist" });
+      }
 
-    const password = await bcrypt.hash(req.body.password, 12);
-    user.hash = password || user.hash;
+      user.isAdmin = req.body.isAdmin || user.isAdmin;
 
-    await user.save();
-    res.json(user);
-  } else {
-    res.json({ message: "cannot access, need to be an Admin" });
+      if (req.body.isAdmin === false) {
+        user.isAdmin = req.body.isAdmin;
+      }
+
+      await user.save();
+      res.json(user);
+    } else {
+      res.json({ message: "cannot access, need to be an Admin" });
+    }
   }
-});
+);
 
 module.exports = router;
