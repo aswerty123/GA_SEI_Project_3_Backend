@@ -3,6 +3,22 @@ const mongoose = require("mongoose");
 ////////////////////////////////
 // CardSchema
 ////////////////////////////////
+const CommentSchema = new mongoose.Schema({
+  commentValue: String,
+  //=================================== keeping track of creation and updated owner and date
+  createdBy: {
+    type: mongoose.SchemaTypes.ObjectId,
+    required: true,
+    immutable: true,
+    ref: "User",
+  },
+  createdAt: {
+    type: Date,
+    immutable: true,
+    default: () => Date.now(),
+  },
+  //===================================
+});
 
 const CardSchema = new mongoose.Schema({
   actionTitle: {
@@ -13,7 +29,10 @@ const CardSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  comments: [String],
+  comments: [CommentSchema],
+  // comments: {
+  //   type: Array,
+  // },
   status: {
     type: String,
     default: "toDo",

@@ -9,7 +9,12 @@ const { v4: uuidv4 } = require("uuid");
 const User = require("../models/User");
 
 const auth = require("../middleware/auth");
-const { seedUsers, seedBoards, seedCards } = require("../models/seeds");
+const {
+  seedUsers,
+  seedBoards,
+  seedCards,
+  seedComments,
+} = require("../models/seeds");
 
 const { body, validationResult } = require("express-validator");
 
@@ -44,7 +49,7 @@ req.body =>
     "password":"password12345",
     "password1": "password12345",
     "name":"GACEO",
-    "friends": []
+    "friends": ["desmond.lim@generalassmb.ly","nyna.yusof@generalassemb.ly","zhenhao.chen@generalassemb.ly"]
 }
 */
 router.put(
@@ -78,13 +83,24 @@ router.put(
           .json({ status: "error", message: "password does not match" });
       }
 
+      let friend;
+      const newFriends = [];
+      for (let i = 0; i < req.body.friends.length; i++) {
+        friend = await User.findOne({ email: req.body.friends[i] });
+        if (friend) {
+          newFriends.push(friend._id);
+        } else {
+          return res.json(`${req.body.friends[i]} does not exist`);
+        }
+      }
+
       //12 is how many times it runs through the salt
       const hash = await bcrypt.hash(req.body.password, 12);
       const createdUser = await User.create({
         email: req.body.email,
         hash,
         name: req.body.name,
-        friends: req.body.friends,
+        friends: [...newFriends],
       });
 
       console.log("created user: ", createdUser);

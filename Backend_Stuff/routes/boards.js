@@ -5,7 +5,12 @@ const User = require("../models/User");
 const Board = require(`../models/Board`);
 
 const auth = require("../middleware/auth");
-const { seedUsers, seedBoards, seedCards } = require("../models/seeds");
+const {
+  seedUsers,
+  seedBoards,
+  seedCards,
+  seedComments,
+} = require("../models/seeds");
 
 const { body, validationResult } = require("express-validator");
 const { route } = require("./users");
@@ -15,8 +20,13 @@ const { route } = require("./users");
 ////////////////////////////////
 
 router.get("/seedBoards", auth, async (req, res) => {
+  const updatedSeedComments = seedComments.map((comment) => ({
+    ...comment,
+    createdBy: req.decoded.id,
+  }));
   const updatedSeedCards = seedCards.map((card) => ({
     ...card,
+    comments: updatedSeedComments,
     createdBy: req.decoded.id,
     updatedBy: req.decoded.id,
   }));
@@ -77,7 +87,7 @@ router.put(
       const createdBoard = await Board.create({
         title: req.body.title,
         desc: req.body.desc,
-        activeCards: [],
+        // activeCards: [],
         createdBy: req.decoded.id,
         updatedBy: req.decoded.id,
         members: [req.decoded.id, ...newMembers],
@@ -264,7 +274,7 @@ router.put(
       const newCard = {
         actionTitle: req.body.actionTitle,
         actionDesc: req.body.actionDesc,
-        comments: [],
+        // comments: [],
         createdBy: req.decoded.id,
         updatedBy: req.decoded.id,
       };
@@ -337,10 +347,7 @@ router.delete("/remove/card", auth, async (req, res) => {
         .status(404)
         .json({ status: "error", message: "Board does not exist" });
     }
-    // await board.updateOne(
-    //   { _id: req.body.boardId },
-    //   { $pull: { activeCards: { _id: req.body.cardId } } }
-    // );
+
     const updatedBoard = await Board.updateOne(
       { _id: req.body.boardId },
       { $pull: { activeCards: { _id: req.body.cardId } } }
@@ -349,7 +356,7 @@ router.delete("/remove/card", auth, async (req, res) => {
 
     // res.json(` ${req.body.cardId} Card is successfully removed`);
   } catch (err) {
-    console.log("DELETE /delete/card", err);
+    console.log("DELETE /remove/card", err);
 
     res.status(400).json({
       status: "error",
@@ -384,13 +391,32 @@ router.put(
           .status(404)
           .json({ status: "error", message: "board does not exist" });
       }
+      /*
+      await Hotels.findOneAndUpdate(
+      {
+        _id: hotelId, // i think not relevant because mongo ObjectId should always be unique
+        rooms: { $elemMatch: { _id: roomId } },
+      },
+      { $set: { "rooms.$.price": roomPrice } }
+    );
+    It works, Thanks ZhenHao!:DDD
 
-      const updatedBoard = await Board.updateOne(
-        { _id: req.body.boardId, "activeCards._id": req.body.cardId },
-        { $push: { "activeCards.comments": req.body.comment } }
+      */
+      const newComment = {
+        commentValue: req.body.comment,
+        createdBy: req.decoded.id,
+      };
+
+      const updatedBoard = await Board.findOneAndUpdate(
+        {
+          _id: req.body.boardId,
+          activeCards: { $elemMatch: { _id: req.body.cardId } },
+        },
+        { $push: { "activeCards.$.comments": newComment } },
+        { new: true }
       );
 
-      res.json(board);
+      res.json(updatedBoard);
     } catch (err) {
       console.log("PUT /create/comment", err);
       res
@@ -400,16 +426,51 @@ router.put(
   }
 );
 
-//Getting all Boards based on the user id
+////////////////////////////////
+// Delete Comment in Card
+////////////////////////////////
+/*
+req.body => 
+{
+    "boardId":"board object id",
+    "cardId": "card object id",
+    "commentId": "comment object id"
+  }
+*/
+router.delete("/remove/comment", auth, async (req, res) => {
+  try {
+    const board = await Board.findOne({ _id: req.body.boardId });
+    if (!board) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Board does not exist" });
+    }
+    // await board.updateOne(
+    //   { _id: req.body.boardId },
+    //   { $pull: { activeCards: { _id: req.body.cardId } } }
+    // );
 
-//Getting one user
+    const updatedBoard = await Board.findOneAndUpdate(
+      {
+        _id: req.body.boardId,
+        activeCards: { $elemMatch: { _id: req.body.cardId } },
+      },
+      { $pull: { "activeCards.$.comments": { _id: req.body.commentId } } },
 
-//Creating one user
+      { new: true }
+    );
 
-//Updating one user
+    res.json(updatedBoard);
 
-//Deleting one user
+    // res.json(` ${req.body.cardId} Card is successfully removed`);
+  } catch (err) {
+    console.log("DELETE /remove/comment", err);
 
-//function to check if user exist (middleWare)
+    res.status(400).json({
+      status: "error",
+      message: "Delete error",
+    });
+  }
+});
 
 module.exports = router;
