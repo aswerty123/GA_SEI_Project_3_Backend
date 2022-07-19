@@ -85,12 +85,14 @@ router.put(
 
       let friend;
       const newFriends = [];
-      for (let i = 0; i < req.body.friends.length; i++) {
-        friend = await User.findOne({ email: req.body.friends[i] });
-        if (friend) {
-          newFriends.push(friend._id);
-        } else {
-          return res.json(`${req.body.friends[i]} does not exist`);
+      if (req.body.friends != null) {
+        for (let i = 0; i < req.body.friends.length; i++) {
+          friend = await User.findOne({ email: req.body.friends[i] });
+          if (friend) {
+            newFriends.push(friend._id);
+          } else {
+            return res.json(`${req.body.friends[i]} does not exist`);
+          }
         }
       }
 
