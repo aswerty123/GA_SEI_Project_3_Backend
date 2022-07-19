@@ -23,11 +23,11 @@ const CommentSchema = new mongoose.Schema({
 const CardSchema = new mongoose.Schema({
   actionTitle: {
     type: String,
-    required: true,
+    default: "input Action Card title here",
   },
   actionDesc: {
     type: String,
-    required: true,
+    default: "input Action Card description here",
   },
   comments: [CommentSchema],
   // comments: {

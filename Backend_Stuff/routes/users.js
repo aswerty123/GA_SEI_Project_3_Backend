@@ -130,52 +130,68 @@ let jsonData= pm.response.json();
 pm.environment.set("access_token", jsonData['access']);
 pm.environment.set("refresh_token", jsonData['refresh']);
 */
-router.post("/login", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      email: req.body.email,
-    });
-    if (req.body.email == "" || req.body.password == "") {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Please complete the input" });
-    }
-    if (!user) {
-      return res
-        .status(404)
-        .json({ status: "error", message: "username does not exist" });
-    }
-    const result = await bcrypt.compare(req.body.password, user.hash);
-    if (!result) {
-      console.log("email or password error");
-      return res.status(401).json({ status: "error", message: "login failed" });
-    }
-    const payload = {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      isAdmin: user.isAdmin,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      friends: user.friends,
-    };
+router.post(
+  "/login",
+  // [
+  //   body("email", "email is required").isEmail(),
+  //   body("password", "password is rquired").not().isEmail(),
+  // ],
+  async (req, res) => {
+    try {
+      // const errors = validationResult(req);
+      // if (!errors.isEmpty()) {
+      //   return res
+      //     .status(400)
+      //     .json({ status: "error", message: errors.array() });
+      // }
 
-    const access = jwt.sign(payload, process.env.ACCESS_SECRET, {
-      expiresIn: "15s",
-      jwtid: uuidv4(),
-    });
-    const refresh = jwt.sign(payload, process.env.REFRESH_SECRET, {
-      expiresIn: "30d",
-      jwtid: uuidv4(),
-    });
+      const user = await User.findOne({
+        email: req.body.email,
+      });
+      if (req.body.email == "" || req.body.password == "") {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Please complete the input" });
+      }
+      if (!user) {
+        return res
+          .status(404)
+          .json({ status: "error", message: "username does not exist" });
+      }
+      const result = await bcrypt.compare(req.body.password, user.hash);
+      if (!result) {
+        console.log("email or password error");
+        return res
+          .status(401)
+          .json({ status: "error", message: "login failed" });
+      }
+      const payload = {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        isAdmin: user.isAdmin,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        friends: user.friends,
+      };
 
-    const response = { access, refresh };
-    res.json(response);
-  } catch (err) {
-    console.log("POST /login", err);
-    res.status(400).json({ status: "error", message: "login failed" });
+      const access = jwt.sign(payload, process.env.ACCESS_SECRET, {
+        expiresIn: "15m",
+        jwtid: uuidv4(),
+      });
+      const refresh = jwt.sign(payload, process.env.REFRESH_SECRET, {
+        expiresIn: "30d",
+        jwtid: uuidv4(),
+      });
+
+      const response = { access, refresh };
+      res.json(response);
+    } catch (err) {
+      console.log("POST /login", err);
+      res.status(400).json({ status: "error", message: "login failed" });
+    }
   }
-});
+);
 
 ////////////////////////////////
 // User Refresh Access Token
@@ -205,7 +221,7 @@ router.post("/refresh", (req, res) => {
     };
 
     const access = jwt.sign(payload, process.env.ACCESS_SECRET, {
-      expiresIn: "5m",
+      expiresIn: "15m",
       jwtid: uuidv4(),
     });
 

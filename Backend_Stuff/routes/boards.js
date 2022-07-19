@@ -257,7 +257,7 @@ router.put(
   [
     auth,
     body("actionTitle", "Please enter Card Title").not().isEmpty(),
-    body("actionDesc", "Please enter Card Description").not().isEmpty(),
+    // body("actionDesc", "Please enter Card Description").not().isEmpty(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -294,6 +294,65 @@ router.put(
 );
 
 ////////////////////////////////
+// Update Card Info
+////////////////////////////////
+/*
+req.body => 
+{
+    "boardId": "board object id",
+    "cardId": "card object id",
+     "actionTitle": "New Action card",
+    "actionDesc": "Planning a new task",
+    "status": "inProgress"
+
+    
+  }
+*/
+router.patch("/update/card", auth, async (req, res) => {
+  try {
+    const board = await Board.findOne({ _id: req.body.boardId });
+    if (!board) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "board does not exist" });
+    }
+
+    // board.title = req.body.title || board.title;
+    // board.desc = req.body.desc || board.desc;
+    // board.members = newMembers || board.members;
+    // board.updatedBy = req.decoded.id || board.updatedBy;
+    // const now = Date.now();
+    // board.updatedAt = now;
+
+    // await board.save();
+
+    const updatedBoard = await Board.findOneAndUpdate(
+      {
+        _id: req.body.boardId,
+        activeCards: { $elemMatch: { _id: req.body.cardId } },
+      },
+      {
+        $set: {
+          "activeCards.$.actionTitle": req.body.actionTitle,
+          "activeCards.$.actionDesc": req.body.actionDesc,
+          "activeCards.$.status": req.body.status,
+        },
+      },
+
+      { new: true }
+    );
+
+    res.json(updatedBoard);
+  } catch (err) {
+    console.log("PATCH /update/card", err);
+
+    res.status(400).json({
+      status: "error",
+      message: "update error",
+    });
+  }
+});
+////////////////////////////////
 // Get Cards by status
 ////////////////////////////////
 /*
@@ -304,6 +363,34 @@ req.body =>
 */
 
 router.get("/display/cards/:status", auth, async (req, res) => {
+  console.log(req.body.boardId);
+  try {
+    const board = await Board.findOne(
+      {
+        _id: req.body.boardId,
+      }
+      //   {
+      //     activeCards: { status: { $eq: req.params.status } } ,
+      //   }
+    );
+    if (!board) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "board does not exist" });
+    }
+    const filteredArray = board.activeCards.filter(
+      (card) => card.status === req.params.status
+    );
+
+    res.json(filteredArray);
+  } catch (err) {
+    console.log("GET /display/cards/:status", err);
+    res.status(400).json({ status: "error", message: "an error has occurred" });
+  }
+});
+
+router.post("/display/cards/:status", auth, async (req, res) => {
+  console.log(req.body.boardId);
   try {
     const board = await Board.findOne(
       {
