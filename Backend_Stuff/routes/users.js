@@ -68,7 +68,11 @@ router.put(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({
+        status: "error",
+        errors: errors.array(),
+        message: "Please re-enter your inputs",
+      });
     }
     try {
       const user = await User.findOne({ email: req.body.email });
