@@ -110,7 +110,7 @@ router.put(
       });
 
       console.log("created user: ", createdUser);
-      res.json({ status: "ok", message: "user created" });
+      res.json({ message: "user created" });
     } catch (err) {
       console.log("PUT /create", err);
       res
