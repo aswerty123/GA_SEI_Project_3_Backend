@@ -65,7 +65,7 @@ router.put(
   [
     auth,
     body("title", "Please enter Board Title").not().isEmpty(),
-    body("desc", "Please enter Board Description").not().isEmpty(),
+    // body("desc", "Please enter Board Description").not().isEmpty(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -76,12 +76,14 @@ router.put(
       //check every member in the members array
       let member;
       const newMembers = [];
-      for (let i = 0; i < req.body.members.length; i++) {
-        member = await User.findOne({ email: req.body.members[i] });
-        if (member) {
-          newMembers.push(member._id);
-        } else {
-          return res.json(`${req.body.members[i]} does not exist`);
+      if (req.body.members != null) {
+        for (let i = 0; i < req.body.members.length; i++) {
+          member = await User.findOne({ email: req.body.members[i] });
+          if (member) {
+            newMembers.push(member._id);
+          } else {
+            return res.json(`${req.body.members[i]} does not exist`);
+          }
         }
       }
       const createdBoard = await Board.create({
@@ -94,7 +96,7 @@ router.put(
       });
 
       console.log("created user: ", createdBoard);
-      res.json({ status: "ok", message: "board created" });
+      res.json({ message: "board created" });
     } catch (err) {
       console.log("PUT /create/board", err);
       res
@@ -304,7 +306,6 @@ req.body =>
      "actionTitle": "New Action card",
     "actionDesc": "Planning a new task",
     "status": "inProgress"
-
     
   }
 */
