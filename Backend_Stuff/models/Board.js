@@ -72,7 +72,7 @@ const BoardSchema = new mongoose.Schema(
     },
     desc: {
       type: String,
-      required: true,
+      default: "input board description here",
     },
     //=================================== keeping track of creation and updated owner and date
 
